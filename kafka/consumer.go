@@ -110,6 +110,7 @@ func (c *Consumer) Poll(ctx context.Context) error {
 				c.SendToDLQ(ctx, record)
 			}
 		}
+		c.Logger.Info("processed records", zap.Int("records", len(records)))
 
 		// Commit successfully processed records
 		if err := c.Client.CommitRecords(ctx, fetches.Records()...); err != nil {

@@ -1,5 +1,5 @@
 # base image
-FROM golang:1.23.4-alpine as base
+FROM golang:1.24.2-alpine as base
 WORKDIR /emailer
 
 ENV CGO_ENABLED=0
