@@ -29,7 +29,7 @@ func (p *MailProcessor) ProcessRecord(record models.Record) error {
 	}
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", mail.From)
+	m.SetHeader("From", p.Creds.MailID)
 	m.SetHeader("To", mail.To)
 	m.SetHeader("Subject", mail.Subject)
 
