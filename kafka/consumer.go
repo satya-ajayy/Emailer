@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
-	"time"
 
 	// Local Packages
 	models "emailer/models"
@@ -32,10 +30,10 @@ type Consumer struct {
 }
 
 type MailProcessor interface {
-	ProcessRecords(ctx context.Context, records []models.Record) error
+	ProcessRecord(record models.Record) error
 }
 
-// NewConsumer creates a new consumer to consume transactions topic
+// NewConsumer creates a new consumer to consume kafka topic
 // (PS: Must call Poll to start consuming the records)
 func NewConsumer(conf *ConsumerConfig, logger *zap.Logger, processor MailProcessor, metrics *kprom.Metrics) (*Consumer, error) {
 	opts := []kgo.Opt{
@@ -58,6 +56,18 @@ func NewConsumer(conf *ConsumerConfig, logger *zap.Logger, processor MailProcess
 		Processor: processor,
 		Logger:    logger,
 	}, nil
+}
+
+func (c *Consumer) SendToDLQ(ctx context.Context, record models.Record) {
+	c.Logger.Info("processing failed, sending to DLQ")
+	dlqRecord := &kgo.Record{
+		Key:   record.Key,
+		Value: record.Value,
+		Topic: fmt.Sprintf("%s-dlq", record.Topic),
+	}
+	if err := c.Client.ProduceSync(ctx, dlqRecord).FirstErr(); err != nil {
+		c.Logger.Error("failed to send DLQ record", zap.Error(err))
+	}
 }
 
 // Poll polls for records from the Kafka broker.
@@ -94,21 +104,11 @@ func (c *Consumer) Poll(ctx context.Context) error {
 			}
 		}
 
-		success := false
-		for attempt := 1; attempt <= 3; attempt++ {
-			err := c.Processor.ProcessRecords(ctx, records)
-			if err == nil {
-				c.Logger.Info("successfully processed records", zap.Int("count", len(records)))
-				success = true
-				break
+		for _, record := range records {
+			err := c.Processor.ProcessRecord(record)
+			if err != nil {
+				c.SendToDLQ(ctx, record)
 			}
-			c.Logger.Warn("processing failed, retrying...", zap.Int("attempt", attempt), zap.Error(err))
-			jitter := time.Duration(rand.Int63n(int64(time.Second)) * (1 << attempt)) // 1s, 2s-4s, 4s-8s, 8s-16s
-			time.Sleep(jitter)
-		}
-
-		if !success {
-			c.Logger.Info("processing failed after retries, sending to DLQ")
 		}
 
 		// Commit successfully processed records

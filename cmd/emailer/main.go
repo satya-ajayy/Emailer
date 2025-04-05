@@ -3,8 +3,6 @@ package main
 import (
 	// Go Internal Packages
 	"context"
-	"emailer/kafka"
-	"github.com/twmb/franz-go/plugin/kprom"
 	"log"
 	"os"
 	"os/signal"
@@ -13,6 +11,8 @@ import (
 
 	// Local Packages
 	config "emailer/config"
+	kafka "emailer/kafka"
+	services "emailer/services"
 
 	// External Packages
 	"github.com/alecthomas/kingpin/v2"
@@ -21,6 +21,7 @@ import (
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/providers/rawbytes"
+	"github.com/twmb/franz-go/plugin/kprom"
 	"go.uber.org/zap"
 )
 
@@ -77,7 +78,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	metrics := kprom.NewMetrics("et")
+	metrics := kprom.NewMetrics("emailer")
 	conf := &kafka.ConsumerConfig{
 		Brokers:        appKonf.Kafka.Brokers,
 		Name:           appKonf.Kafka.ConsumerName,
@@ -85,9 +86,10 @@ func main() {
 		RecordsPerPoll: appKonf.Kafka.RecordsPerPoll,
 	}
 
-	consumer, err := kafka.NewConsumer(conf, logger, nil, metrics)
+	processor := services.NewProcessor(logger, appKonf.Credentials)
+	consumer, err := kafka.NewConsumer(conf, logger, processor, metrics)
 	if err != nil {
-		logger.Fatal("cannot create transactions consumer", zap.Error(err))
+		logger.Fatal("cannot create consumer", zap.Error(err))
 	}
 
 	go func() {
