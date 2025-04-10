@@ -23,10 +23,10 @@ type ConsumerConfig struct {
 }
 
 type Consumer struct {
-	Client    *kgo.Client
-	Config    *ConsumerConfig
-	Processor MailProcessor
-	Logger    *zap.Logger
+	client    *kgo.Client
+	config    *ConsumerConfig
+	processor MailProcessor
+	logger    *zap.Logger
 }
 
 type MailProcessor interface {
@@ -51,38 +51,38 @@ func NewConsumer(conf *ConsumerConfig, logger *zap.Logger, processor MailProcess
 	}
 
 	return &Consumer{
-		Client:    client,
-		Config:    conf,
-		Processor: processor,
-		Logger:    logger,
+		client:    client,
+		config:    conf,
+		processor: processor,
+		logger:    logger,
 	}, nil
 }
 
 func (c *Consumer) SendToDLQ(ctx context.Context, record models.Record) {
-	c.Logger.Info("processing failed, sending to DLQ")
+	c.logger.Info("processing failed, sending to DLQ")
 	dlqRecord := &kgo.Record{
 		Key:   record.Key,
 		Value: record.Value,
 		Topic: fmt.Sprintf("%s-dlq", record.Topic),
 	}
-	if err := c.Client.ProduceSync(ctx, dlqRecord).FirstErr(); err != nil {
-		c.Logger.Error("failed to send DLQ record", zap.Error(err))
+	if err := c.client.ProduceSync(ctx, dlqRecord).FirstErr(); err != nil {
+		c.logger.Error("failed to send DLQ record", zap.Error(err))
 	}
 }
 
 // Poll polls for records from the Kafka broker.
 func (c *Consumer) Poll(ctx context.Context) error {
-	defer c.Client.Close()
+	defer c.client.Close()
 
 	for {
 		// Check if the context is canceled before polling
 		if ctx.Err() != nil {
-			c.Logger.Warn("polling stopped: context canceled")
+			c.logger.Warn("polling stopped: context canceled")
 			return ctx.Err() // Exit gracefully
 		}
 
-		c.Logger.Info(fmt.Sprintf("%s: polling for records", c.Config.Name))
-		fetches := c.Client.PollRecords(ctx, c.Config.RecordsPerPoll)
+		c.logger.Info(fmt.Sprintf("%s: polling for records", c.config.Name))
+		fetches := c.client.PollRecords(ctx, c.config.RecordsPerPoll)
 
 		// Handle client shutdown
 		if fetches.IsClientClosed() {
@@ -105,7 +105,7 @@ func (c *Consumer) Poll(ctx context.Context) error {
 		}
 
 		for _, record := range records {
-			err := c.Processor.ProcessRecord(record)
+			err := c.processor.ProcessRecord(record)
 			if err != nil {
 				c.SendToDLQ(ctx, record)
 			}
@@ -113,8 +113,8 @@ func (c *Consumer) Poll(ctx context.Context) error {
 		c.Logger.Info("processed records", zap.Int("records", len(records)))
 
 		// Commit successfully processed records
-		if err := c.Client.CommitRecords(ctx, fetches.Records()...); err != nil {
-			c.Logger.Error("failed to commit processed records", zap.Error(err))
+		if err := c.client.CommitRecords(ctx, fetches.Records()...); err != nil {
+			c.logger.Error("failed to commit processed records", zap.Error(err))
 		}
 	}
 }

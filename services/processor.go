@@ -13,23 +13,23 @@ import (
 )
 
 type MailProcessor struct {
-	Logger *zap.Logger
-	Creds  config.Credentials
+	logger *zap.Logger
+	creds  config.Credentials
 }
 
 func NewProcessor(logger *zap.Logger, creds config.Credentials) *MailProcessor {
-	return &MailProcessor{Logger: logger, Creds: creds}
+	return &MailProcessor{logger: logger, creds: creds}
 }
 
 func (p *MailProcessor) ProcessRecord(record models.Record) error {
 	var mail models.Mail
 	err := json.Unmarshal(record.Value, &mail)
 	if err != nil {
-		p.Logger.Error("failed to unmarshal mail", zap.Error(err))
+		p.logger.Error("failed to unmarshal mail", zap.Error(err))
 	}
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", p.Creds.MailID)
+	m.SetHeader("From", p.creds.MailID)
 	m.SetHeader("To", mail.To)
 	m.SetHeader("Subject", mail.Subject)
 
@@ -39,7 +39,7 @@ func (p *MailProcessor) ProcessRecord(record models.Record) error {
 		m.SetBody("text/plain", mail.Body)
 	}
 
-	d := gomail.NewDialer("smtp.gmail.com", 587, p.Creds.MailID, p.Creds.Password)
+	d := gomail.NewDialer("smtp.gmail.com", 587, p.creds.MailID, p.creds.Password)
 	if err := d.DialAndSend(m); err != nil {
 		return fmt.Errorf("could not send email: %v", err)
 	}
