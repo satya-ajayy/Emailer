@@ -1,8 +1,11 @@
 package services
 
 import (
+	// Go Internal Packages
+	"context"
 	"encoding/json"
 	"fmt"
+
 	// Local Packages
 	config "emailer/config"
 	models "emailer/models"
@@ -21,7 +24,7 @@ func NewProcessor(logger *zap.Logger, creds config.Credentials) *MailProcessor {
 	return &MailProcessor{logger: logger, creds: creds}
 }
 
-func (p *MailProcessor) ProcessRecord(record models.Record) error {
+func (p *MailProcessor) ProcessRecord(ctx context.Context, record models.Record) error {
 	var mail models.Mail
 	err := json.Unmarshal(record.Value, &mail)
 	if err != nil {

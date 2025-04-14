@@ -30,7 +30,7 @@ type Consumer struct {
 }
 
 type MailProcessor interface {
-	ProcessRecord(record models.Record) error
+	ProcessRecord(ctx context.Context, record models.Record) error
 }
 
 // NewConsumer creates a new consumer to consume kafka topic
@@ -66,7 +66,7 @@ func (c *Consumer) SendToDLQ(ctx context.Context, record models.Record) {
 		Topic: fmt.Sprintf("%s-dlq", record.Topic),
 	}
 	if err := c.client.ProduceSync(ctx, dlqRecord).FirstErr(); err != nil {
-		c.logger.Error("failed to send DLQ record", zap.Error(err))
+		c.logger.Error("failed to send records to DLQ", zap.Error(err))
 	}
 }
 
@@ -105,7 +105,7 @@ func (c *Consumer) Poll(ctx context.Context) error {
 		}
 
 		for _, record := range records {
-			err := c.processor.ProcessRecord(record)
+			err := c.processor.ProcessRecord(ctx, record)
 			if err != nil {
 				c.SendToDLQ(ctx, record)
 			}
