@@ -1,9 +1,6 @@
 package config
 
-import (
-	// Local Packages
-	errors "emailer/errors"
-)
+import "errors"
 
 var DefaultConfig = []byte(`
 application: "emailer"
@@ -53,17 +50,14 @@ type Credentials struct {
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
-	ve := errors.ValidationErrs()
-
 	if c.Application == "" {
-		ve.Add("application", "cannot be empty")
+		c.Application = "emailer"
 	}
 	if c.Logger.Level == "" {
-		ve.Add("logger.level", "cannot be empty")
+		c.Logger.Level = "debug"
 	}
 	if len(c.Kafka.Brokers) == 0 {
-		ve.Add("kafka.brokers", "cannot be empty")
+		return errors.New("kafka brokers are not configured")
 	}
-
-	return ve.Err()
+	return nil
 }
