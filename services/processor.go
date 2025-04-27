@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+
 	// Local Packages
 	config "emailer/config"
 	models "emailer/models"
