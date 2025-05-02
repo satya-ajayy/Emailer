@@ -7,12 +7,17 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	// Local Packages
 	config "emailer/config"
+	shttp "emailer/http"
+	handlers "emailer/http/handlers"
 	kafka "emailer/kafka"
-	services "emailer/services"
+	models "emailer/models"
+	mongodb "emailer/repositories/mongodb"
+	email "emailer/services/email"
+	health "emailer/services/health"
+	processors "emailer/services/processors"
 
 	// External Packages
 	"github.com/alecthomas/kingpin/v2"
@@ -24,6 +29,42 @@ import (
 	"github.com/twmb/franz-go/plugin/kprom"
 	"go.uber.org/zap"
 )
+
+// InitializeServer sets up an HTTP server with defined handlers. Repositories are initialized,
+// create the services, and subsequently construct handlers for the services
+func InitializeServer(ctx context.Context, k config.Config, logger *zap.Logger) (*shttp.Server, error) {
+	mongoClient, err := mongodb.Connect(ctx, k.Mongo.URI)
+	if err != nil {
+		return nil, err
+	}
+
+	metrics := kprom.NewMetrics("emailer")
+	conf := &models.ConsumerConfig{
+		Brokers:        k.Kafka.Brokers,
+		Name:           k.Kafka.ConsumerName,
+		Topic:          k.Kafka.Topic,
+		RecordsPerPoll: k.Kafka.RecordsPerPoll,
+	}
+
+	ordersRepo := mongodb.NewOrdersRepository(mongoClient)
+	processor := processors.NewProcessor(logger, k.Credentials, ordersRepo)
+	consumer, err := kafka.NewConsumer(conf, processor, metrics, logger, k.Slack, k.IsProdMode)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		if err = consumer.Poll(ctx); err != nil {
+			logger.Fatal("cannot poll records from topic", zap.Error(err))
+		}
+	}()
+
+	healthSvc := health.NewService(logger, mongoClient, consumer)
+	emailService := email.NewService(consumer)
+	emailHandler := handlers.NewEmailHandler(emailService)
+	server := shttp.NewServer(k.Prefix, logger, consumer, healthSvc, emailHandler)
+	return server, nil
+}
 
 // LoadConfig loads the default configuration and overrides it with the config file
 // specified by the path defined in the config flag
@@ -37,6 +78,7 @@ func LoadConfig() *koanf.Koanf {
 	if *configPath != "" {
 		_ = k.Load(file.Provider(*configPath), yaml.Parser())
 	}
+
 	return k
 }
 
@@ -78,32 +120,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	metrics := kprom.NewMetrics("emailer")
-	conf := &kafka.ConsumerConfig{
-		Brokers:        appKonf.Kafka.Brokers,
-		Name:           appKonf.Kafka.ConsumerName,
-		Topic:          appKonf.Kafka.Topic,
-		RecordsPerPoll: appKonf.Kafka.RecordsPerPoll,
-	}
-
-	processor := services.NewProcessor(logger, appKonf.Credentials)
-	consumer, err := kafka.NewConsumer(conf, logger, processor, metrics)
+	srv, err := InitializeServer(ctx, appKonf, logger)
 	if err != nil {
-		logger.Fatal("cannot create consumer", zap.Error(err))
+		logger.Fatal("cannot initialize server", zap.Error(err))
 	}
 
-	go func() {
-		if err = consumer.Poll(ctx); err != nil {
-			logger.Fatal("cannot poll records from topic", zap.Error(err))
-		}
-	}()
-
-	<-ctx.Done()
-	logger.Info("shutting down...")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	<-shutdownCtx.Done()
-	logger.Info("shutdown complete")
+	if err = srv.Listen(ctx, appKonf.Listen); err != nil {
+		logger.Fatal("cannot listen", zap.Error(err))
+	}
 }

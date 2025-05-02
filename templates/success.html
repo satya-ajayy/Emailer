@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f9f9f9;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .success {
+            background: #d1e7dd;
+            color: #0f5132;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .section-title {
+            font-weight: bold;
+            font-size: 20px;
+            margin-top: 20px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+        .customer-details p {
+            margin: 4px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        th {
+            background: #f0f0f0;
+        }
+        .item-image {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #f9f9f9;
+        }
+    </style>
+    <title></title>
+</head>
+<body>
+<div class="container">
+    <div class="success">✅ Order Placed Successfully</div>
+
+    <div><strong>Order ID:</strong> {{.ID}}</div>
+    <div><strong>Order Date:</strong> {{.CreatedAt}}</div>
+    <div><strong>Estimated Delivery:</strong> {{.DeliveryDate}}</div>
+
+    <div class="section-title">Customer Details</div>
+    <div class="customer-details">
+        <p><strong>Name:</strong> {{.Customer.Name}}</p>
+        <p><strong>Email:</strong> {{.Customer.MailID}}</p>
+        <p><strong>Phone:</strong> {{.Customer.PhNo}}</p>
+        <p><strong>Address:</strong> {{.Customer.Address.Street}}, {{.Customer.Address.City}}, {{.Customer.Address.State}} - {{.Customer.Address.Pin}}</p>
+    </div>
+
+    <div class="section-title">Items</div>
+    <table>
+        <thead>
+        <tr>
+            <th>Image</th>
+            <th>Item</th>
+            <th>Price</th>
+            <th>Qty</th>
+            <th>Discount (%)</th>
+            <th>Total</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Items}}
+        <tr>
+            <td><img src="{{.ImageURL}}" class="item-image" alt="{{.Name}}"></td>
+            <td>{{.Name}}</td>
+            <td>${{printf "%.2f" .Price}}</td>
+            <td>{{.Qty}}</td>
+            <td>{{.Discount}}</td>
+            <td>${{.Total}}</td>
+        </tr>
+        {{end}}
+        <tr class="total-row">
+            <td colspan="5" style="text-align:right;">Delivery Charges</td>
+            <td>${{printf "%.2f" .DeliveryCharges}}</td>
+        </tr>
+        <tr class="total-row">
+            <td colspan="5" style="text-align:right;">Grand Total</td>
+            <td>${{call .CalculateTotal}}</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
