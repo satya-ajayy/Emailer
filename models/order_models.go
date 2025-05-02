@@ -1,8 +1,8 @@
 package models
 
 import (
-	"emailer/errors"
-	"fmt"
+	// Local Packages
+	errors "emailer/errors"
 )
 
 type Address struct {
@@ -36,19 +36,19 @@ type Order struct {
 	DeliveryCharges float32         `json:"delivery_charges" bson:"delivery_charges"`
 }
 
-func (o *Order) CalculateTotal() string {
-	sum := float32(0)
+func (o Order) CalculateTotal() float64 {
+	sum := float64(0)
 	for _, item := range o.Items {
-		sum += float32(item.Total)
+		sum += float64(item.Total)
 	}
-	sum += o.DeliveryCharges
-	return fmt.Sprintf("%.2f", sum)
+	sum += float64(o.DeliveryCharges)
+	return sum
 }
 
 type MailQP struct {
-	Order  string `json:"order_id"`
-	Type   string `json:"mail_type"`
-	Header string `json:"header"`
+	Order  string `json:"order_id" schema:"order_id"`
+	Type   string `json:"mail_type" schema:"mail_type"`
+	Header string `json:"header" schema:"header"`
 }
 
 func (m *MailQP) Validate() error {
