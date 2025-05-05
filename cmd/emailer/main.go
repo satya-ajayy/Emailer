@@ -11,11 +11,9 @@ import (
 	// Local Packages
 	config "emailer/config"
 	shttp "emailer/http"
-	handlers "emailer/http/handlers"
 	kafka "emailer/kafka"
 	models "emailer/models"
 	mongodb "emailer/repositories/mongodb"
-	email "emailer/services/email"
 	health "emailer/services/health"
 	processors "emailer/services/processors"
 
@@ -60,9 +58,7 @@ func InitializeServer(ctx context.Context, k config.Config, logger *zap.Logger) 
 	}()
 
 	healthSvc := health.NewService(logger, mongoClient, consumer)
-	emailService := email.NewService(consumer)
-	emailHandler := handlers.NewEmailHandler(emailService)
-	server := shttp.NewServer(k.Prefix, logger, consumer, healthSvc, emailHandler)
+	server := shttp.NewServer(k.Prefix, logger, consumer, healthSvc)
 	return server, nil
 }
 

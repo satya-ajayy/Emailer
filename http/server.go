@@ -6,9 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	// Local Packages
-	errors "emailer/errors"
-	handlers "emailer/http/handlers"
 	apxresp "emailer/http/response"
 	kafka "emailer/kafka"
 	health "emailer/services/health"
@@ -27,15 +24,13 @@ type Server struct {
 	health   *health.HealthCheckService
 	logger   *zap.Logger
 	prefix   string
-	emails   *handlers.EmailHandler
 }
 
-func NewServer(prefix string, logger *zap.Logger, consumer *kafka.Consumer, healthCheck *health.HealthCheckService, emails *handlers.EmailHandler) *Server {
+func NewServer(prefix string, logger *zap.Logger, consumer *kafka.Consumer, healthCheck *health.HealthCheckService) *Server {
 	return &Server{
 		consumer: consumer,
 		logger:   logger,
 		prefix:   prefix,
-		emails:   emails,
 		health:   healthCheck,
 	}
 }
@@ -53,7 +48,6 @@ func (s *Server) Listen(ctx context.Context, addr string) error {
 	r.Route(s.prefix, func(r chi.Router) {
 		r.Route("/v1", func(r chi.Router) {
 			r.Get("/health", s.HealthCheckHandler)
-			r.Post("/send", s.ToHTTPHandlerFunc(s.emails.Send))
 		})
 	})
 
@@ -71,30 +65,6 @@ func (s *Server) Listen(ctx context.Context, addr string) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return server.Shutdown(shutdownCtx)
-	}
-}
-
-// ToHTTPHandlerFunc converts a handler function to an http.HandlerFunc.
-// This wrapper function is used to handle errors and respond to the client
-func (s *Server) ToHTTPHandlerFunc(handler func(w http.ResponseWriter, r *http.Request) (any, int, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		response, status, err := handler(w, r)
-		if err != nil {
-			switch err := err.(type) {
-			case *errors.Error:
-				apxresp.RespondError(w, err)
-			default:
-				s.logger.Error("internal error", zap.Error(err))
-				apxresp.RespondMessage(w, http.StatusInternalServerError, "internal error")
-			}
-			return
-		}
-		if response != nil {
-			apxresp.RespondJSON(w, status, response)
-		}
-		if status >= 100 && status < 600 {
-			w.WriteHeader(status)
-		}
 	}
 }
 

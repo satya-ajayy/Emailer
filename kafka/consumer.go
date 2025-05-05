@@ -114,16 +114,12 @@ func (c *Consumer) Poll(ctx context.Context) error {
 		if err := c.client.CommitRecords(ctx, fetches.Records()...); err != nil {
 			c.logger.Error("failed to commit processed records", zap.Error(err))
 		}
+
+		c.client.AllowRebalance()
 	}
 }
 
 // Ping pings the kgo client
 func (c *Consumer) Ping(ctx context.Context) error {
 	return c.client.Ping(ctx)
-}
-
-// ProduceRecord sends a record to the kafka topic
-func (c *Consumer) ProduceRecord(ctx context.Context, key []byte, value []byte) error {
-	record := &kgo.Record{Key: key, Value: value, Topic: c.config.Topic}
-	return c.client.ProduceSync(ctx, record).FirstErr()
 }

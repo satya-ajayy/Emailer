@@ -32,22 +32,22 @@ func NewProcessor(logger *zap.Logger, creds config.Credentials, repo OrdersRepos
 }
 
 func (p *MailProcessor) ProcessRecord(ctx context.Context, record models.Record) error {
-	var mail models.MailQP
-	err := json.Unmarshal(record.Value, &mail)
+	var order models.OrderInKafka
+	err := json.Unmarshal(record.Value, &order)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling JSON: %v", err)
 	}
 
-	order, err := p.ordersRepo.GetOrder(ctx, mail.Order)
+	details, err := p.ordersRepo.GetOrder(ctx, order.ID)
 	if err != nil {
 		return fmt.Errorf("error getting order: %v", err)
 	}
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", p.creds.MailID)
-	m.SetHeader("To", order.Customer.MailID)
-	m.SetHeader("Subject", mail.Header)
-	body, err := p.GetHTML(order)
+	m.SetHeader("To", details.Customer.MailID)
+	m.SetHeader("Subject", order.Header)
+	body, err := p.GetHTML(details)
 	if err != nil {
 		return fmt.Errorf("error getting HTML: %v", err)
 	}

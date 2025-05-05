@@ -12,3 +12,9 @@ type ConsumerConfig struct {
 	Topic          string
 	RecordsPerPoll int
 }
+
+type OrderInKafka struct {
+	ID     string `json:"id" schema:"id"`
+	Type   string `json:"type" schema:"type"`
+	Header string `json:"header" schema:"header"`
+}

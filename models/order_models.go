@@ -1,10 +1,5 @@
 package models
 
-import (
-	// Local Packages
-	errors "emailer/errors"
-)
-
 type Address struct {
 	Street string `json:"street" bson:"street"`
 	City   string `json:"city" bson:"city"`
@@ -43,26 +38,4 @@ func (o Order) CalculateTotal() float64 {
 	}
 	sum += float64(o.DeliveryCharges)
 	return sum
-}
-
-type MailQP struct {
-	Order  string `json:"order_id" schema:"order_id"`
-	Type   string `json:"mail_type" schema:"mail_type"`
-	Header string `json:"header" schema:"header"`
-}
-
-func (m *MailQP) Validate() error {
-	ve := errors.ValidationErrs()
-
-	if m.Order == "" {
-		ve.Add("order_id", "cannot be empty")
-	}
-	if m.Type == "" {
-		ve.Add("mail_type", "cannot be empty")
-	}
-	if m.Header == "" {
-		ve.Add("header", "cannot be empty")
-	}
-
-	return ve.Err()
 }
