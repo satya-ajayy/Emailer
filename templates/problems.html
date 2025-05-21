@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>New LeetCode Problems</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 700px;
+            margin: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #2563eb;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th {
+            background-color: #3b82f6;
+            color: white;
+            padding: 10px;
+            text-align: left;
+        }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .icon {
+            height: 20px;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        .link {
+            color: #1d4ed8;
+            text-decoration: none;
+        }
+        .link:hover {
+            text-decoration: underline;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .unsubscribe {
+            color: #ef4444;
+            text-decoration: none;
+        }
+        .unsubscribe:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>👋 Hello {{.User.UserName}},</h2>
+    <p>Here are some new LeetCode problems for you to check out:</p>
+    <table>
+        <thead>
+        <tr>
+            <th>Problem No</th>
+            <th>Problem Name</th>
+            <th>Link</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range .Problems}}
+        <tr>
+            <td>{{.ID}}</td>
+            <td>
+                <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/LeetCode_logo_black.png" class="icon" alt="LeetCode Logo" />
+                {{.Name}}
+            </td>
+            <td><a href="{{.Link}}" class="link">View Problem</a></td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+    <p style="margin-top: 20px;">Happy Coding! 🚀</p>
+    <div class="footer">
+        <p>
+            <a href="https://yourdomain.com/unsubscribe" class="unsubscribe"> Click Here to Unsubscribe </a>
+        </p>
+    </div>
+</div>
+</body>
+</html>

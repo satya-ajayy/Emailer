@@ -13,9 +13,9 @@ import (
 	shttp "emailer/http"
 	kafka "emailer/kafka"
 	models "emailer/models"
-	mongodb "emailer/repositories/mongodb"
 	health "emailer/services/health"
 	processors "emailer/services/processors"
+	slack "emailer/utils/slack"
 
 	// External Packages
 	"github.com/alecthomas/kingpin/v2"
@@ -26,15 +26,13 @@ import (
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/twmb/franz-go/plugin/kprom"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-// InitializeServer sets up an HTTP server with defined handlers. Repositories are initialized,
-// create the services, and subsequently construct handlers for the services
+// InitializeServer sets up an HTTP server with health Service and starts kafka consumer.
 func InitializeServer(ctx context.Context, k config.Config, logger *zap.Logger) (*shttp.Server, error) {
-	mongoClient, err := mongodb.Connect(ctx, k.Mongo.URI)
-	if err != nil {
-		return nil, err
-	}
+	// Slack Alert Sender
+	slackAlerter := slack.NewSender(k.Slack, k.IsProdMode)
 
 	metrics := kprom.NewMetrics("emailer")
 	conf := &models.ConsumerConfig{
@@ -44,9 +42,8 @@ func InitializeServer(ctx context.Context, k config.Config, logger *zap.Logger) 
 		RecordsPerPoll: k.Kafka.RecordsPerPoll,
 	}
 
-	ordersRepo := mongodb.NewOrdersRepository(mongoClient)
-	processor := processors.NewProcessor(logger, k.Credentials, ordersRepo)
-	consumer, err := kafka.NewConsumer(conf, processor, metrics, logger, k.Slack, k.IsProdMode)
+	processor := processors.NewProcessor(logger, k.Credentials)
+	consumer, err := kafka.NewConsumer(conf, processor, metrics, logger, slackAlerter)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +54,7 @@ func InitializeServer(ctx context.Context, k config.Config, logger *zap.Logger) 
 		}
 	}()
 
-	healthSvc := health.NewService(logger, mongoClient, consumer)
+	healthSvc := health.NewService(logger, consumer)
 	server := shttp.NewServer(k.Prefix, logger, consumer, healthSvc)
 	return server, nil
 }
@@ -104,6 +101,7 @@ func main() {
 	cfg := zap.NewProductionConfig()
 	cfg.Encoding = "logfmt"
 	_ = cfg.Level.UnmarshalText([]byte(appKonf.Logger.Level))
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	cfg.InitialFields = make(map[string]any)
 	cfg.InitialFields["host"], _ = os.Hostname()
 	cfg.InitialFields["service"] = appKonf.Application

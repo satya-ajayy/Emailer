@@ -12,5 +12,6 @@ RUN go build -o /usr/local/bin/emailer ./cmd/emailer
 # runner image
 FROM alpine:latest
 WORKDIR /app
+
 COPY --from=base /usr/local/bin/emailer emailer
 ENTRYPOINT ["/app/emailer"]

@@ -33,8 +33,8 @@ slack:
   send_alert_in_dev: true
 
 credentials:
-  mail_id: "your-email@example.com"
-  password: "super-secret-password"
+  mail_id: "rsajay54@gmail.com"
+  password: "epin gbkx sgzb dhmi"
 `)
 
 type Config struct {

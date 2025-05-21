@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"regexp"
 
 	// External Packages
@@ -30,7 +29,7 @@ func MD5(text string) string {
 
 // EscapeSpecialChars replaces special characters in a string with "\\" + the character
 func EscapeSpecialChars(input string) string {
-	re := regexp.MustCompile(`[^\w]`)
+	re := regexp.MustCompile(`\W`)
 	return re.ReplaceAllString(input, "\\$0")
 }
 
@@ -62,20 +61,6 @@ func GetSchemaDecoder() *schema.Decoder {
 	return d
 }
 
-// GetSameSiteCookieOption returns the SameSite option for a given string
-func GetSameSiteCookieOption(s string) http.SameSite {
-	switch s {
-	case "Lax":
-		return http.SameSiteLaxMode
-	case "Strict":
-		return http.SameSiteStrictMode
-	case "Default":
-		return http.SameSiteDefaultMode
-	default:
-		return http.SameSiteNoneMode
-	}
-}
-
 func UnmarshalInterface(res interface{}, mp map[string]interface{}, key string) error {
 	if a, ok := mp[key]; ok {
 		Bytes, _ := json.Marshal(a)
@@ -85,10 +70,4 @@ func UnmarshalInterface(res interface{}, mp map[string]interface{}, key string) 
 		}
 	}
 	return nil
-}
-
-func RemoveUIs(message map[string]interface{}) map[string]interface{} {
-	delete(message, "ui")
-	delete(message, "uis")
-	return message
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	// Local Packages
 	config "emailer/config"
@@ -25,39 +26,50 @@ type Payload struct {
 	Blocks []Block `json:"blocks"`
 }
 
-type Sender = func(record models.Record, err error) error
+type SlackSender struct {
+	client *http.Client
+	config config.Slack
+	isProd bool
+}
 
-func NewSender(k config.Slack, isProdMode bool) Sender {
-	return func(record models.Record, err error) error {
-		if (isProdMode) || (!isProdMode && k.SendAlertInDev) {
-			var order models.Order
-			err = json.Unmarshal(record.Value, &order)
-			if err != nil {
-				return err
-			}
+type Sender interface {
+	SendAlert(record models.Record, err error) error
+}
 
-			header := Block{
-				Type: "header",
-				Text: Text{
-					Type: "plain_text",
-					Text: "Error in Emailer",
-				},
-			}
-			body := Block{
-				Type: "section",
-				Text: Text{
-					Type: "mrkdwn",
-					Text: fmt.Sprintf("```OrderID:%s\nCustomerName:%s\nError:%s\n```",
-						order.ID, order.Customer.Name, err.Error()),
-				},
-			}
-			payload := Payload{
-				Blocks: []Block{header, body},
-			}
-			jsonPayload, _ := json.Marshal(payload)
-			_, err = http.Post(k.WebhookURL, "application/json", bytes.NewReader(jsonPayload))
-			return err
-		}
-		return nil
+// NewSender creates a new Slack alert sender
+func NewSender(config config.Slack, isProd bool) Sender {
+	return &SlackSender{
+		client: &http.Client{Timeout: 5 * time.Second},
+		config: config, isProd: isProd,
 	}
+}
+
+func (s *SlackSender) SendAlert(record models.Record, err error) error {
+	if s.isProd || (!s.isProd && s.config.SendAlertInDev) {
+		header := Block{
+			Type: "header",
+			Text: Text{
+				Type: "plain_text",
+				Text: "Error In Emailer",
+			},
+		}
+
+		body := Block{
+			Type: "section",
+			Text: Text{
+				Type: "mrkdwn",
+				Text: fmt.Sprintf("```Failed To Send Mail to %s\nError: %s\n```",
+					record.Topic, err.Error()),
+			},
+		}
+
+		payload := Payload{
+			Blocks: []Block{header, body},
+		}
+
+		jsonPayload, _ := json.Marshal(payload)
+		_, err := s.client.Post(s.config.WebhookURL, "application/json", bytes.NewReader(jsonPayload))
+		return err
+	}
+	return nil
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	// Local Packages
-	config "emailer/config"
 	models "emailer/models"
 	slack "emailer/utils/slack"
 
@@ -22,8 +21,7 @@ type Consumer struct {
 	config    *models.ConsumerConfig
 	processor MailProcessor
 	logger    *zap.Logger
-	slack     config.Slack
-	isProd    bool
+	slack     slack.Sender
 }
 
 type MailProcessor interface {
@@ -32,13 +30,12 @@ type MailProcessor interface {
 
 // NewConsumer creates a new consumer to consume mails
 // (PS: Must call Poll to start consuming the records)
-func NewConsumer(conf *models.ConsumerConfig, processor MailProcessor, metrics *kprom.Metrics, logger *zap.Logger, slack config.Slack, isProd bool) (*Consumer, error) {
+func NewConsumer(conf *models.ConsumerConfig, processor MailProcessor, metrics *kprom.Metrics, logger *zap.Logger, slack slack.Sender) (*Consumer, error) {
 	c := &Consumer{
 		config:    conf,
 		processor: processor,
 		logger:    logger,
 		slack:     slack,
-		isProd:    isProd,
 	}
 
 	opts := []kgo.Opt{
@@ -94,15 +91,12 @@ func (c *Consumer) Poll(ctx context.Context) error {
 		}
 
 		total := len(records)
-		c.logger.Info("received records", zap.Int("records", total))
-
 		success := total
 		for _, record := range records {
 			err := c.processor.ProcessRecord(ctx, record)
 			if err != nil {
 				c.logger.Error("failed to process record", zap.Error(err))
-				sender := slack.NewSender(c.slack, c.isProd)
-				if err = sender(record, err); err != nil {
+				if err = c.slack.SendAlert(record, err); err != nil {
 					c.logger.Error("failed to send slack message", zap.Error(err))
 				}
 				success = success - 1

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	// Local Packages
+	smiddleware "emailer/http/middlewares"
 	apxresp "emailer/http/response"
 	kafka "emailer/kafka"
 	health "emailer/services/health"
@@ -15,7 +17,6 @@ import (
 	"github.com/go-chi/chi/middleware"
 	_ "github.com/jsternberg/zap-logfmt"
 	"go.uber.org/zap"
-	"moul.io/chizap"
 )
 
 // Server struct follows the alphabet order
@@ -39,10 +40,7 @@ func (s *Server) Listen(ctx context.Context, addr string) error {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(chizap.New(s.logger, &chizap.Opts{
-		WithReferer:   false,
-		WithUserAgent: false,
-	}))
+	r.Use(smiddleware.HTTPMiddleware(s.logger))
 	r.Use(middleware.Recoverer)
 
 	r.Route(s.prefix, func(r chi.Router) {

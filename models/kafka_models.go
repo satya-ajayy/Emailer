@@ -13,8 +13,18 @@ type ConsumerConfig struct {
 	RecordsPerPoll int
 }
 
-type OrderInKafka struct {
-	ID     string `json:"id" schema:"id"`
-	Type   string `json:"type" schema:"type"`
-	Header string `json:"header" schema:"header"`
+type UserData struct {
+	UserName string `json:"user_name" schema:"user_name"`
+	MailID   string `json:"mail_id" schema:"mail_id"`
+}
+
+type Problem struct {
+	ID   string `json:"_id" schema:"_id"`
+	Name string `json:"name" schema:"name"`
+	Link string `json:"link" schema:"link"`
+}
+
+type UserLinks struct {
+	User     UserData  `json:"user" schema:"user"`
+	Problems []Problem `json:"problems" schema:"problems"`
 }

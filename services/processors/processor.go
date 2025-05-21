@@ -17,37 +17,27 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-type OrdersRepository interface {
-	GetOrder(ctx context.Context, orderID string) (models.Order, error)
-}
-
 type MailProcessor struct {
-	logger     *zap.Logger
-	ordersRepo OrdersRepository
-	creds      config.Credentials
+	logger *zap.Logger
+	creds  config.Credentials
 }
 
-func NewProcessor(logger *zap.Logger, creds config.Credentials, repo OrdersRepository) *MailProcessor {
-	return &MailProcessor{logger: logger, creds: creds, ordersRepo: repo}
+func NewProcessor(logger *zap.Logger, creds config.Credentials) *MailProcessor {
+	return &MailProcessor{logger: logger, creds: creds}
 }
 
 func (p *MailProcessor) ProcessRecord(ctx context.Context, record models.Record) error {
-	var order models.OrderInKafka
-	err := json.Unmarshal(record.Value, &order)
+	var userLinks models.UserLinks
+	err := json.Unmarshal(record.Value, &userLinks)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling JSON: %v", err)
 	}
 
-	details, err := p.ordersRepo.GetOrder(ctx, order.ID)
-	if err != nil {
-		return fmt.Errorf("error getting order: %v", err)
-	}
-
 	m := gomail.NewMessage()
 	m.SetHeader("From", p.creds.MailID)
-	m.SetHeader("To", details.Customer.MailID)
-	m.SetHeader("Subject", order.Header)
-	body, err := p.GetHTML(details)
+	m.SetHeader("To", userLinks.User.MailID)
+	m.SetHeader("Subject", "!!! Checkout Our New Problems !!!")
+	body, err := p.GetHTML(userLinks)
 	if err != nil {
 		return fmt.Errorf("error getting HTML: %v", err)
 	}
@@ -60,16 +50,16 @@ func (p *MailProcessor) ProcessRecord(ctx context.Context, record models.Record)
 	return nil
 }
 
-func (p *MailProcessor) GetHTML(order models.Order) (string, error) {
-	successTemplate, err := template.New("success.html").
+func (p *MailProcessor) GetHTML(userLinks models.UserLinks) (string, error) {
+	problemsTemplate, err := template.New("problems.html").
 		Funcs(template.FuncMap{"call": func(f interface{}) interface{} { return f.(func() string)() }}).
-		ParseFiles("templates/success.html")
+		ParseFiles("templates/problems.html")
 	if err != nil {
-		return "", fmt.Errorf("template parse error:: %v", err)
+		return "", fmt.Errorf("template parse error: %v", err)
 	}
 
 	var body bytes.Buffer
-	err = successTemplate.Execute(&body, order)
+	err = problemsTemplate.Execute(&body, userLinks)
 	if err != nil {
 		return "", fmt.Errorf("template execution error: %v", err)
 	}
